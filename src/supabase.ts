@@ -9,6 +9,7 @@ const URL_ = String(import.meta.env["VITE_SUPABASE_URL"] ?? "").trim();
 const ANON_KEY = String(import.meta.env["VITE_SUPABASE_ANON_KEY"] ?? "").trim();
 
 export const TREES_TABLE = "trees";
+export const PROFILES_TABLE = "profiles";
 export const IMAGE_BUCKET = "tree-images";
 
 let client: SupabaseClient | null = null;

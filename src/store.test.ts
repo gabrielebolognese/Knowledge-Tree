@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { LEGACY_STORAGE_KEY, STORAGE_KEY, TITLE_MAX } from "./config.js";
+import { LEGACY_STORAGE_KEY, STORAGE_KEY, TITLE_LIMIT } from "./config.js";
 import { Store } from "./store.js";
 import { DEFAULT_TAB, TABS, emptyTrees } from "./tabs.js";
 import type { Workspace } from "./types.js";
@@ -143,14 +143,16 @@ describe("connections", () => {
 });
 
 describe("editing", () => {
-  it("clamps a title to TITLE_MAX characters", () => {
+  it("caps a title at the largest any shape allows", () => {
     const store = new Store(emptyWorkspace());
     const id = store.addMainNode();
 
-    store.updateNode(id, { title: "x".repeat(150) });
+    store.updateNode(id, { title: "x".repeat(500) });
 
-    expect(store.node(id)?.title).toHaveLength(TITLE_MAX);
-    expect(TITLE_MAX).toBe(50);
+    // The store holds the card limit; the narrower circle limit is enforced
+    // by the input, so reshaping a node can never silently eat its title.
+    expect(store.node(id)?.title).toHaveLength(TITLE_LIMIT);
+    expect(TITLE_LIMIT).toBe(200);
   });
 
   it("notifies subscribers and persists", () => {
@@ -326,7 +328,8 @@ describe("import and export", () => {
     expect(store.countFor("storia")).toBe(0);
     // A file from before dates existed comes in with an empty one.
     expect(store.get().nodes[0]?.date).toBe("");
-    expect(store.missingDates()).toHaveLength(1);
+    // Database has no dates at all, so nothing is reported as missing.
+    expect(store.missingDates()).toHaveLength(0);
   });
 
   it("drops edges pointing at nodes that are not in the file", () => {

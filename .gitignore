@@ -7,3 +7,7 @@ dist/
 .DS_Store
 coverage/
 .vitest/
+
+# Local-only helper script, kept but never committed
+generate.ps1
+activity.txt

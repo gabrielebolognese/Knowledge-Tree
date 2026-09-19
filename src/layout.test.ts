@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { COL_W, MAIN_SCALE, R_SIDE, ROW_H, TITLE_MAX } from "./config.js";
+import { PLAIN_PROFILE, circle } from "./testing.js";
 import {
   cellToWorld,
   contentBounds,
@@ -22,10 +23,13 @@ function node(partial: Partial<TreeNode> = {}): TreeNode {
     title: "",
     date: "",
     description: "",
+    examples: "",
     images: [],
     col: 0,
     row: 0,
     main: false,
+    corollary: false,
+    important: false,
     ...partial,
   };
 }
@@ -56,15 +60,15 @@ describe("grid coordinates", () => {
 
 describe("radiusOf", () => {
   it("draws main-rail nodes 20% bigger", () => {
-    expect(radiusOf({ main: false })).toBe(R_SIDE);
-    expect(radiusOf({ main: true })).toBeCloseTo(R_MAIN);
-    expect(radiusOf({ main: true }) / radiusOf({ main: false })).toBeCloseTo(1.2);
+    expect(radiusOf({ main: false, corollary: false })).toBe(R_SIDE);
+    expect(radiusOf({ main: true, corollary: false })).toBeCloseTo(R_MAIN);
+    expect(radiusOf({ main: true, corollary: false }) / radiusOf({ main: false, corollary: false })).toBeCloseTo(1.2);
   });
 });
 
 describe("targetCell", () => {
   it("always advances one row and shifts sideways only on a diagonal", () => {
-    const parent = { col: 1, row: 4 };
+    const parent = { col: 1, row: 4, corollary: false };
     expect(targetCell(parent, "down")).toEqual({ col: 1, row: 5 });
     expect(targetCell(parent, "down-left")).toEqual({ col: 0, row: 5 });
     expect(targetCell(parent, "down-right")).toEqual({ col: 2, row: 5 });
@@ -88,7 +92,7 @@ describe("findFreeCell", () => {
 
 describe("edgeGeometry", () => {
   it("trims the arrow so it starts and ends outside both circles", () => {
-    const geom = edgeGeometry({ x: 0, y: 0 }, { x: 0, y: ROW_H }, R_MAIN, R_MAIN);
+    const geom = edgeGeometry({ x: 0, y: 0 }, { x: 0, y: ROW_H }, circle(R_MAIN), circle(R_MAIN));
     expect(geom).not.toBeNull();
     expect(geom?.y1).toBeGreaterThan(R_MAIN);
     expect(geom?.y2).toBeLessThan(ROW_H - R_MAIN);
@@ -96,12 +100,18 @@ describe("edgeGeometry", () => {
   });
 
   it("leaves room for a main-to-main arrow at the grid spacing", () => {
-    expect(edgeGeometry({ x: 0, y: 0 }, { x: 0, y: ROW_H }, R_MAIN, R_MAIN)).not.toBeNull();
-    expect(edgeGeometry({ x: 0, y: 0 }, { x: COL_W, y: ROW_H }, R_MAIN, R_SIDE)).not.toBeNull();
+    expect(
+      edgeGeometry({ x: 0, y: 0 }, { x: 0, y: ROW_H }, circle(R_MAIN), circle(R_MAIN)),
+    ).not.toBeNull();
+    expect(
+      edgeGeometry({ x: 0, y: 0 }, { x: COL_W, y: ROW_H }, circle(R_MAIN), circle(R_SIDE)),
+    ).not.toBeNull();
   });
 
   it("returns null when the circles are too close to fit an arrow", () => {
-    expect(edgeGeometry({ x: 0, y: 0 }, { x: 0, y: 30 }, R_SIDE, R_SIDE)).toBeNull();
+    expect(
+      edgeGeometry({ x: 0, y: 0 }, { x: 0, y: 30 }, circle(R_SIDE), circle(R_SIDE)),
+    ).toBeNull();
   });
 });
 
@@ -151,11 +161,14 @@ describe("fitTitle", () => {
 
 describe("contentBounds", () => {
   it("is null for an empty tree", () => {
-    expect(contentBounds([])).toBeNull();
+    expect(contentBounds([], PLAIN_PROFILE)).toBeNull();
   });
 
   it("covers every node with padding", () => {
-    const bounds = contentBounds([node({ col: 0, row: 0 }), node({ col: 2, row: 1, main: true })]);
+    const bounds = contentBounds(
+      [node({ col: 0, row: 0 }), node({ col: 2, row: 1, main: true })],
+      PLAIN_PROFILE,
+    );
     expect(bounds).not.toBeNull();
     expect(bounds?.minX).toBeLessThan(0);
     expect(bounds?.maxX).toBeGreaterThan(2 * COL_W);

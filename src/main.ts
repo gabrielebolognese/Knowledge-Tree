@@ -3,6 +3,7 @@ import "./styles.css";
 import { TreeCanvas } from "./canvas.js";
 import { Sidebar } from "./sidebar.js";
 import { blobToDataUrl } from "./media.js";
+import { BrowseBar } from "./browsebar.js";
 import { Store } from "./store.js";
 import { Sync } from "./sync.js";
 import { SyncBar } from "./syncbar.js";
@@ -56,12 +57,23 @@ function boot(): void {
 
   const zoomReadout = el("span", "kt-zoom-readout", "100%");
 
+  // Only shown while several nodes are picked; clicking it lets them go.
+  const selectionChip = el("button", "kt-chip");
+  selectionChip.type = "button";
+  selectionChip.title = "Clear the selection";
+  selectionChip.hidden = true;
+  selectionChip.addEventListener("click", () => canvas.setSelection([]));
+
   const canvas = new TreeCanvas(stage, store, {
     onSelect: (id) => {
       sidebar.setNode(id);
       // A node with no title yet is one you just made, so put the caret in it.
       const node = store.node(id);
       if (node && !node.title) sidebar.focusTitle();
+    },
+    onSelectionChange: (ids) => {
+      selectionChip.hidden = ids.length < 2;
+      selectionChip.textContent = `${ids.length} selected`;
     },
     onStatus: say,
     onViewport: (viewport) => {
@@ -120,6 +132,39 @@ function boot(): void {
   brand.append(el("h1", undefined, "knowledge tree"));
   topbar.append(brand, tabNav);
 
+  // Sits across the top of the canvas so there is no doubt whose trees these are.
+  const viewBar = el("div", "kt-viewbar");
+  viewBar.hidden = true;
+  const viewLabel = el("span");
+  const exitView = button("Back to mine", "Return to your own trees", () => {
+    store.stopViewing();
+    canvas.setSelection([]);
+    canvas.fit();
+    say("Back to your own trees.");
+  });
+  viewBar.append(viewLabel, exitView);
+  workspace.append(viewBar);
+
+  const browseBar = new BrowseBar(topbar, sync, {
+    onOpen: (account) => {
+      void (async () => {
+        say(`Loading ${account.name}\u2026`);
+        const raw = await sync.fetchWorkspace(account.owner);
+        if (raw === null) {
+          say("Those trees are not available \u2014 they may have been unpublished.");
+          return;
+        }
+        if (!store.viewAccount({ owner: account.owner, name: account.name }, raw)) {
+          say("Could not read those trees.");
+          return;
+        }
+        canvas.setSelection([]);
+        canvas.fit();
+      })();
+    },
+    onStatus: say,
+  });
+
   const syncBar = new SyncBar(topbar, sync);
 
   // --- toolbar --------------------------------------------------------------
@@ -163,6 +208,12 @@ function boot(): void {
     sidebar.focusTitle();
   }
 
+  const emptyState = el("div", "kt-empty-state");
+  const emptyText = el("p");
+  const startBtn = button("Plant the first node", "Start the main rail", addMainNode);
+  startBtn.classList.add("is-primary");
+  emptyState.append(emptyText, startBtn);
+
   // The date is mandatory on the main rail, so keep the outstanding count visible.
   const dateWarning = el("button", "kt-warning");
   dateWarning.type = "button";
@@ -175,18 +226,23 @@ function boot(): void {
     canvas.focus(first.id);
   });
 
+  const addNodeBtn = button("+ Main node", "Extend the main rail", addMainNode);
+  const importBtn = button("Import", "Load trees from JSON", () => fileInput.click());
+  const editControls: HTMLButtonElement[] = [addNodeBtn, importBtn, startBtn];
+
   const tools = el("div", "kt-tools");
   tools.append(
     button("−", "Zoom out", () => canvas.zoomBy(1 / 1.25)),
     zoomReadout,
     button("+", "Zoom in", () => canvas.zoomBy(1.25)),
     el("span", "kt-divider"),
+    selectionChip,
     dateWarning,
     button("Fit", "Frame the whole tree (0)", () => canvas.fit()),
-    button("+ Main node", "Extend the main rail", addMainNode),
+    addNodeBtn,
     el("span", "kt-divider"),
     button("Export", "Download every tab as JSON", exportTrees),
-    button("Import", "Load trees from JSON", () => fileInput.click()),
+    importBtn,
     fileInput,
   );
 
@@ -197,20 +253,27 @@ function boot(): void {
     el("span", undefined, "click a node to open it"),
     el("span", undefined, "+ handles to grow"),
     el("span", undefined, "shift-click to connect"),
+    el("span", undefined, "ctrl-drag to select several"),
     el("span", undefined, "double-click empty space for a loose node"),
   );
 
-  const emptyState = el("div", "kt-empty-state");
-  const emptyText = el("p");
-  const startBtn = button("Plant the first node", "Start the main rail", addMainNode);
-  startBtn.classList.add("is-primary");
-  emptyState.append(emptyText, startBtn);
+
 
   workspace.append(tools, hints, status, emptyState);
 
   // --- wiring ---------------------------------------------------------------
 
   function syncChrome(): void {
+    const viewing = store.viewing();
+    const readOnly = store.isReadOnly();
+
+    viewBar.hidden = viewing === null;
+    if (viewing) viewLabel.replaceChildren(document.createTextNode(`Viewing ${viewing.name} \u2014 read only`));
+
+    // Everything that writes is out of reach while reading someone else's.
+    for (const control of editControls) control.disabled = readOnly;
+    emptyState.classList.toggle("is-readonly", readOnly);
+
     const active = store.getActiveTab();
     for (const [id, btn] of tabButtons) {
       const isActive = id === active;
@@ -219,7 +282,10 @@ function boot(): void {
     }
 
     emptyState.hidden = store.get().nodes.length > 0;
-    emptyText.textContent = `Nothing in ${labelFor(active)} yet.`;
+    emptyText.textContent = viewing
+      ? `${viewing.name} has nothing in ${labelFor(active)}.`
+      : `Nothing in ${labelFor(active)} yet.`;
+    startBtn.hidden = readOnly;
 
     const missing = store.missingDates().length;
     dateWarning.hidden = missing === 0;
@@ -249,12 +315,16 @@ function boot(): void {
     // Everything below is a bare shortcut, so it must not fire while typing.
     if (sidebar.hasFocus()) return;
 
-    const selected = canvas.getSelected();
-    if ((event.key === "Delete" || event.key === "Backspace") && selected) {
+    const selected = canvas.getSelection();
+    if (
+      (event.key === "Delete" || event.key === "Backspace") &&
+      selected.length > 0 &&
+      !store.isReadOnly()
+    ) {
       event.preventDefault();
-      store.removeNode(selected);
-      canvas.setSelected(null);
-      say("Node deleted.");
+      for (const id of selected) store.removeNode(id);
+      canvas.setSelection([]);
+      say(selected.length === 1 ? "Node deleted." : `${selected.length} nodes deleted.`);
       return;
     }
 
@@ -271,6 +341,7 @@ function boot(): void {
   canvas.fit();
   syncChrome();
   sync.start();
+  void browseBar.refresh();
 }
 
 boot();

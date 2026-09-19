@@ -1,5 +1,6 @@
 import type { Store } from "./store.js";
-import { IMAGE_BUCKET, TREES_TABLE, isConfigured, supabase } from "./supabase.js";
+import { IMAGE_BUCKET, PROFILES_TABLE, TREES_TABLE, isConfigured, supabase } from "./supabase.js";
+import type { PublishedAccount } from "./types.js";
 
 export type SyncStatus =
   | "disabled"
@@ -13,6 +14,16 @@ export interface SyncState {
   email: string | null;
   message: string | null;
 }
+
+/** Small images skip re-encoding, so the stored name must match what they are. */
+const EXTENSIONS: Record<string, string> = {
+  "image/webp": "webp",
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/gif": "gif",
+  "image/avif": "avif",
+  "image/svg+xml": "svg",
+};
 
 /** How long to batch local edits before sending them up. */
 const PUSH_DELAY = 1500;
@@ -138,10 +149,11 @@ export class Sync {
     const sb = supabase();
     if (!sb || !this.userId) return null;
 
-    const path = `${this.userId}/${crypto.randomUUID()}.webp`;
+    const type = blob.type || "image/webp";
+    const path = `${this.userId}/${crypto.randomUUID()}.${EXTENSIONS[type] ?? "webp"}`;
     const { error } = await sb.storage
       .from(IMAGE_BUCKET)
-      .upload(path, blob, { contentType: blob.type || "image/webp", upsert: false });
+      .upload(path, blob, { contentType: type, upsert: false });
 
     if (error) {
       this.fail(`Image upload failed: ${error.message}`);
@@ -149,6 +161,88 @@ export class Sync {
     }
     return sb.storage.from(IMAGE_BUCKET).getPublicUrl(path).data.publicUrl;
   }
+
+  // --- sharing -------------------------------------------------------------
+
+  /** Whether sync is even possible here; browsing needs no account. */
+  canBrowse(): boolean {
+    return isConfigured();
+  }
+
+  signedInAs(): string | null {
+    return this.userId;
+  }
+
+  /**
+   * Everyone who has published. Row-level security means this only ever
+   * returns opted-in accounts, whether or not anyone is signed in — so a
+   * guest sees exactly what a signed-in visitor sees, and nothing more.
+   */
+  async listPublished(): Promise<PublishedAccount[]> {
+    const sb = supabase();
+    if (!sb) return [];
+
+    const { data, error } = await sb
+      .from(PROFILES_TABLE)
+      .select("owner, display_name")
+      .eq("published", true)
+      .order("display_name", { ascending: true });
+
+    if (error || !data) return [];
+    return data.map((row) => ({
+      owner: String(row.owner),
+      name: String(row.display_name ?? "").trim() || "Unnamed",
+    }));
+  }
+
+  /** Fetches one account's trees. Null when it is not published after all. */
+  async fetchWorkspace(owner: string): Promise<unknown | null> {
+    const sb = supabase();
+    if (!sb) return null;
+
+    const { data, error } = await sb
+      .from(TREES_TABLE)
+      .select("data")
+      .eq("owner", owner)
+      .maybeSingle();
+
+    if (error || !data) return null;
+    return data.data;
+  }
+
+  /** Your own sharing settings. */
+  async getPublishing(): Promise<{ published: boolean; name: string }> {
+    const sb = supabase();
+    if (!sb || !this.userId) return { published: false, name: "" };
+
+    const { data } = await sb
+      .from(PROFILES_TABLE)
+      .select("display_name, published")
+      .eq("owner", this.userId)
+      .maybeSingle();
+
+    return {
+      published: data?.published === true,
+      name: String(data?.display_name ?? ""),
+    };
+  }
+
+  /** Publishes or unpublishes your trees. Returns an error message on failure. */
+  async setPublishing(published: boolean, name: string): Promise<string | null> {
+    const sb = supabase();
+    if (!sb || !this.userId) return "Sign in first to publish your trees.";
+
+    const { error } = await sb.from(PROFILES_TABLE).upsert({
+      owner: this.userId,
+      display_name: name.trim().slice(0, 60),
+      published,
+      updated_at: new Date().toISOString(),
+    });
+
+    return error ? error.message : null;
+  }
+
+  // --- pushing your own ----------------------------------------------------
 
   private markDirty(): void {
     this.dirty = true;

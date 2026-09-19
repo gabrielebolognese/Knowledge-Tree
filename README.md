@@ -8,6 +8,7 @@ it diagonally so a corollary can be followed as deep as it deserves.
 - The **title sits inside the circle**, wrapped to the circle's shape, 50 characters max.
 - The **date sits outside**, to the left. Required on the main rail, optional on side rails.
 - Main-rail circles are 20% larger — the main flow of knowledge reads at a glance.
+- Corollaries are 20% smaller and sit 20% closer, for detail that would clutter a description.
 - Yellow outlines, orange arrows, white text on dark grey.
 - Click a node to open its description and images in the sidebar.
 - The canvas has no edges: pan, zoom and grow each tree as far as you like.
@@ -44,8 +45,11 @@ The tab list lives in `src/tabs.ts` — that one array is the only place to chan
 | Frame everything | `Fit`, or press `0` |
 | Open a node | Click it |
 | Grow the tree | Select a node, then click one of its three `+` handles: straight down continues the rail, a diagonal starts a side rail |
+| Split out detail | Tick **Is a corollary** in the sidebar |
 | Connect two nodes | Select one, shift-click the other |
 | Move a node | Drag it — it snaps to the grid |
+| Select several | Hold **Ctrl** and drag a box over them; Ctrl-click adds or removes one |
+| Move them together | Drag any selected node — the whole group follows |
 | Loose node | Double-click empty space |
 | Delete | `Delete` with a node selected, or the sidebar button |
 | Close the sidebar | `Esc` |
@@ -53,6 +57,30 @@ The tab list lives in `src/tabs.ts` — that one array is the only place to chan
 Straight down from a main-rail node stays on the main rail. Any diagonal starts a side
 rail, and everything grown from a side rail stays on that side rail. The sidebar's
 **On the main rail** toggle overrides this if you reshape the timeline later.
+
+### Corollaries
+
+When a description is getting messy, split the detail out into a corollary: tick
+**Is a corollary** in the sidebar. The circle shrinks by 20% and moves 20% closer to
+its parent, which is what makes its arrow shorter — so a run of corollaries reads as a
+tight sub-list rather than more of the timeline.
+
+A corollary only grows downward, so it shows a single `+` handle, and anything grown
+from it is a corollary too. Ticking the box also brings whatever already hangs below
+along, keeping that sub-tree's spacing. A node is on the main rail, or a corollary, or
+neither — never both, and the two checkboxes disable each other accordingly.
+
+### Making room
+
+The direction you pick is honoured exactly — down always means down. If the cell is
+already taken, the branch sitting there slides sideways as one piece, far enough to
+clear everything, so the arrow feeding it simply gets longer. Nested children move
+with it and keep their shape.
+
+The main rail never moves: it is the spine, so branches give way to it rather than the
+other way round. In the rare case where the rail itself is holding the cell, the new
+node steps aside instead. Nothing is pulled back in automatically when space frees up —
+drag a node if you want to tidy up.
 
 ### Dates
 
@@ -96,6 +124,28 @@ offline is the case this does not handle — the later one wins. Export is the b
 The anon key is designed to ship in the browser; row-level security is what actually
 protects the data. `.env` is gitignored regardless.
 
+## Viewing other people
+
+Click **Browse** in the top nav to see who has published, and open their trees
+read-only. This needs no account at all: a signed-out guest sees exactly what a
+signed-in visitor sees. A yellow bar names whose trees you are reading, and
+**Back to mine** returns you.
+
+You can still pan, zoom, switch subjects, open nodes and Export a copy. You cannot
+add, edit, move or delete anything.
+
+### Publishing your own
+
+Off by default. In **Browse**, give yourself a display name and tick **Publish my
+trees**. Until you do, nothing of yours is visible to anyone.
+
+Read-only is enforced by the database, not by hiding buttons: the write policy on
+`trees` stays `auth.uid() = owner`, so a visitor physically cannot change your
+nodes whatever they do to the client. Publishing only adds a *read* policy.
+
+Publishing is all-or-nothing across all eight subjects, so do not publish if one of
+your tabs holds something private.
+
 ## Data and durability
 
 Three layers, deliberately:
@@ -122,7 +172,8 @@ src/
   sidebar.ts   detail panel (date, title, description, images, connections)
   store.ts     every tab's tree, mutations, persistence, import normalising
   layout.ts    pure grid/geometry maths, incl. fitting a title inside a circle (tested)
-  sync.ts      Supabase auth, pull/push, image upload
+  sync.ts      Supabase auth, pull/push, image upload, publishing
+  browsebar.ts the Browse control: published accounts and your publish switch
   supabase.ts  client setup from env; absent env means local-only
   syncbar.ts   the sync control in the top nav
   media.ts     image downscaling to a blob

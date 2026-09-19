@@ -56,10 +56,13 @@ describe("emptyTrees", () => {
       title: "",
       date: "",
       description: "",
+      examples: "",
       images: [],
       col: 0,
       row: 0,
       main: true,
+      corollary: false,
+      important: false,
     });
     expect(trees.italiano.nodes).toHaveLength(0);
   });

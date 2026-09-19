@@ -207,6 +207,20 @@ body {
   cursor: move;
 }
 
+.kt-canvas.is-selecting {
+  cursor: crosshair;
+}
+
+/* The Ctrl-drag selection box. */
+.kt-marquee {
+  fill: rgb(233 193 90 / 9%);
+  stroke: var(--yellow);
+  stroke-width: 1;
+  stroke-dasharray: 5 4;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
 .kt-stage {
   width: 100%;
   height: 100%;
@@ -240,6 +254,27 @@ body {
   stroke-width: 2.4;
 }
 
+/* An important side node: squared off, and a touch bolder than a circle. */
+.kt-important {
+  fill: var(--bg-node);
+  stroke: var(--yellow-bright);
+  stroke-width: 2.6;
+  transition: stroke 120ms ease;
+}
+
+.kt-node.is-selected .kt-important {
+  filter: drop-shadow(0 0 8px rgb(233 193 90 / 55%));
+}
+
+.kt-node.is-important .kt-title {
+  font-weight: 600;
+}
+
+/* A corollary is a smaller circle, so its outline is proportionally finer. */
+.kt-node.is-corollary .kt-circle {
+  stroke-width: 1.6;
+}
+
 .kt-node:hover .kt-circle {
   stroke: var(--yellow-bright);
 }
@@ -247,6 +282,69 @@ body {
 .kt-node.is-selected .kt-circle {
   stroke: var(--yellow-bright);
   filter: drop-shadow(0 0 7px rgb(233 193 90 / 55%));
+}
+
+/* A main-rail card, where the rail carries rules rather than events. */
+.kt-card {
+  fill: var(--bg-node);
+  stroke: var(--yellow-bright);
+  stroke-width: 2;
+  transition: stroke 120ms ease;
+}
+
+.kt-node:hover .kt-card {
+  stroke: var(--yellow-bright);
+}
+
+.kt-node.is-selected .kt-card {
+  filter: drop-shadow(0 0 9px rgb(233 193 90 / 45%));
+}
+
+.kt-card-title {
+  fill: var(--text);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.kt-card-title.is-empty {
+  fill: var(--muted);
+  font-style: italic;
+}
+
+.kt-card-desc {
+  fill: #a9a9a6;
+  font-weight: 400;
+}
+
+/* Worked examples, set in real notation. */
+.kt-card-example {
+  fill: var(--yellow-bright);
+  font-family: ui-serif, Cambria, "Times New Roman", Georgia, serif;
+  font-weight: 500;
+}
+
+.kt-card-radical {
+  stroke: var(--yellow-bright);
+  stroke-linecap: square;
+}
+
+.kt-card-rule {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.kt-card-more {
+  fill: var(--muted);
+  font-size: 12px;
+}
+
+.zoom-far .kt-card-title,
+.zoom-far .kt-card-desc,
+.zoom-far .kt-card-example,
+.zoom-far .kt-card-radical,
+.zoom-far .kt-card-rule,
+.zoom-far .kt-card-more {
+  display: none;
 }
 
 /* Title, inside the circle. Its size comes from the radius, set inline. */
@@ -289,6 +387,11 @@ body {
 
 .kt-media-dot {
   fill: var(--orange);
+  pointer-events: none;
+}
+
+.kt-example-dot {
+  fill: var(--yellow);
   pointer-events: none;
 }
 
@@ -362,6 +465,21 @@ body {
 
 body:has(.kt-sidebar:not([hidden])) .kt-tools {
   right: calc(var(--sidebar-w) + 20px);
+}
+
+.kt-chip {
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 11.5px;
+  color: var(--yellow-bright);
+  background: rgb(233 193 90 / 12%);
+  border: 1px solid rgb(233 193 90 / 45%);
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.kt-chip:hover {
+  background: rgb(233 193 90 / 22%);
 }
 
 .kt-warning {
@@ -492,6 +610,103 @@ body:has(.kt-sidebar:not([hidden])) .kt-tools {
   pointer-events: auto;
 }
 
+/* --- viewing someone else ------------------------------------------------ */
+
+.kt-viewbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 20px;
+  font-size: 12px;
+  color: var(--bg);
+  background: var(--yellow);
+}
+
+.kt-viewbar strong {
+  font-weight: 700;
+}
+
+.kt-viewbar .kt-btn {
+  margin-left: auto;
+  color: var(--bg);
+  border-color: rgb(0 0 0 / 35%);
+}
+
+.kt-viewbar .kt-btn:hover {
+  color: var(--bg);
+  background: rgb(0 0 0 / 12%);
+  border-color: rgb(0 0 0 / 55%);
+}
+
+.kt-browse {
+  position: relative;
+  flex: none;
+  padding-left: 8px;
+}
+
+.kt-browse-heading {
+  margin: 0;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.kt-browse-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.kt-browse-row {
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  color: #c9c9c6;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.kt-browse-row:hover {
+  color: var(--text);
+  background: rgb(255 255 255 / 6%);
+}
+
+.kt-browse-publish {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+/* A read-only panel still reads clearly; it just cannot be typed into. */
+.kt-sidebar.is-readonly .kt-title-input,
+.kt-sidebar.is-readonly .kt-date-input,
+.kt-sidebar.is-readonly .kt-desc-input,
+.kt-sidebar.is-readonly .kt-url-input {
+  background: transparent;
+  border-color: transparent;
+  padding-left: 0;
+}
+
+.kt-sidebar.is-readonly .kt-image-row,
+.kt-sidebar.is-readonly .kt-counter,
+.kt-sidebar.is-readonly .kt-thumb-remove,
+.kt-sidebar.is-readonly .kt-sidebar-foot {
+  display: none;
+}
+
 /* --- sidebar ------------------------------------------------------------ */
 
 .kt-sidebar {
@@ -527,6 +742,16 @@ body:has(.kt-sidebar:not([hidden])) .kt-tools {
 
 .kt-rail-tag.is-main {
   color: var(--yellow);
+}
+
+.kt-rail-tag.is-corollary {
+  color: #9a8fb8;
+}
+
+.kt-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .kt-field-label {
@@ -712,6 +937,12 @@ body:has(.kt-sidebar:not([hidden])) .kt-tools {
   gap: 10px;
 }
 
+.kt-toggles {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
 .kt-toggle {
   display: flex;
   align-items: center;
@@ -724,6 +955,15 @@ body:has(.kt-sidebar:not([hidden])) .kt-tools {
 .kt-toggle input {
   accent-color: var(--yellow);
   cursor: pointer;
+}
+
+.kt-toggle:has(input:disabled) {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.kt-toggle input:disabled {
+  cursor: default;
 }
 
 /* --- lightbox ----------------------------------------------------------- */

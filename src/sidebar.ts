@@ -1,4 +1,4 @@
-import { TITLE_MAX } from "./config.js";
+import { titleLimitFor } from "./layout.js";
 import { prepareImage, type ImageUploader } from "./media.js";
 import type { Store } from "./store.js";
 import type { NodeId } from "./types.js";
@@ -26,8 +26,11 @@ function el<K extends keyof HTMLElementTagNameMap>(
 export class Sidebar {
   private readonly root: HTMLElement;
   private readonly railTag: HTMLElement;
+  private readonly dateField: HTMLElement;
   private readonly dateLabel: HTMLElement;
   private readonly dateInput: HTMLInputElement;
+  private readonly examplesField: HTMLElement;
+  private readonly examplesInput: HTMLTextAreaElement;
   private readonly titleInput: HTMLInputElement;
   private readonly counter: HTMLElement;
   private readonly descInput: HTMLTextAreaElement;
@@ -36,6 +39,10 @@ export class Sidebar {
   private readonly fileInput: HTMLInputElement;
   private readonly links: HTMLElement;
   private readonly mainToggle: HTMLInputElement;
+  private readonly corollaryToggle: HTMLInputElement;
+  private readonly importantToggle: HTMLInputElement;
+  private readonly importantLabel: HTMLElement;
+  private readonly editControls: HTMLElement[] = [];
   private readonly lightbox: HTMLElement;
   private readonly lightboxImg: HTMLImageElement;
 
@@ -68,9 +75,11 @@ export class Sidebar {
       this.queueSave();
     });
 
+    this.dateField = el("div", "kt-field");
+    this.dateField.append(this.dateLabel, this.dateInput);
+
     this.titleInput = el("input", "kt-title-input");
     this.titleInput.type = "text";
-    this.titleInput.maxLength = TITLE_MAX;
     this.titleInput.placeholder = "Title";
     this.titleInput.addEventListener("input", () => {
       this.updateCounter();
@@ -83,6 +92,14 @@ export class Sidebar {
     this.descInput.placeholder = "What happened, and why it matters…";
     this.descInput.rows = 9;
     this.descInput.addEventListener("input", () => this.queueSave());
+
+    this.examplesInput = el("textarea", "kt-desc-input");
+    this.examplesInput.placeholder = "Worked examples, one per line\u2026";
+    this.examplesInput.rows = 6;
+    this.examplesInput.addEventListener("input", () => this.queueSave());
+
+    this.examplesField = el("div", "kt-field");
+    this.examplesField.append(el("label", "kt-field-label", "Examples"), this.examplesInput);
 
     this.thumbs = el("div", "kt-thumbs");
 
@@ -125,6 +142,27 @@ export class Sidebar {
     const toggleLabel = el("label", "kt-toggle");
     toggleLabel.append(this.mainToggle, el("span", undefined, "On the main rail"));
 
+    this.corollaryToggle = el("input");
+    this.corollaryToggle.type = "checkbox";
+    this.corollaryToggle.addEventListener("change", () => {
+      if (!this.currentId) return;
+      this.store.updateNode(this.currentId, { corollary: this.corollaryToggle.checked });
+    });
+    const corollaryLabel = el("label", "kt-toggle");
+    corollaryLabel.title =
+      "A sub-point hanging off this node: smaller, closer, and only grows downward";
+    corollaryLabel.append(this.corollaryToggle, el("span", undefined, "Is a corollary"));
+
+    this.importantToggle = el("input");
+    this.importantToggle.type = "checkbox";
+    this.importantToggle.addEventListener("change", () => {
+      if (!this.currentId) return;
+      this.store.updateNode(this.currentId, { important: this.importantToggle.checked });
+    });
+    this.importantLabel = el("label", "kt-toggle");
+    this.importantLabel.title = "Squares off this side node so it stands out";
+    this.importantLabel.append(this.importantToggle, el("span", undefined, "Important"));
+
     const deleteBtn = el("button", "kt-btn is-danger", "Delete node");
     deleteBtn.type = "button";
     deleteBtn.addEventListener("click", () => {
@@ -134,18 +172,21 @@ export class Sidebar {
       this.callbacks.onDismiss();
     });
 
+    const toggles = el("div", "kt-toggles");
+    toggles.append(toggleLabel, corollaryLabel, this.importantLabel);
+
     const footer = el("footer", "kt-sidebar-foot");
-    footer.append(toggleLabel, deleteBtn);
+    footer.append(toggles, deleteBtn);
 
     this.root.append(
       header,
-      this.dateLabel,
-      this.dateInput,
+      this.dateField,
       el("label", "kt-field-label", "Title"),
       this.titleInput,
       this.counter,
       el("label", "kt-field-label", "Description"),
       this.descInput,
+      this.examplesField,
       el("label", "kt-field-label", "Images"),
       this.thumbs,
       imageRow,
@@ -153,6 +194,21 @@ export class Sidebar {
       this.links,
       footer,
     );
+    // Everything here writes, so all of it is switched off in view mode.
+    this.editControls.push(
+      this.dateInput,
+      this.titleInput,
+      this.descInput,
+      this.examplesInput,
+      this.urlInput,
+      uploadBtn,
+      addUrlBtn,
+      this.mainToggle,
+      this.corollaryToggle,
+      this.importantToggle,
+      deleteBtn,
+    );
+
     parent.append(this.root);
 
     this.lightbox = el("div", "kt-lightbox");
@@ -198,8 +254,11 @@ export class Sidebar {
     this.root.hidden = false;
     this.dateInput.value = node.date;
     this.titleInput.value = node.title;
+    this.examplesInput.value = node.examples;
     this.descInput.value = node.description;
     this.mainToggle.checked = node.main;
+    this.corollaryToggle.checked = node.corollary;
+    this.importantToggle.checked = node.important;
     this.urlInput.value = "";
     this.updateCounter();
     this.refresh();
@@ -213,9 +272,34 @@ export class Sidebar {
       return;
     }
 
-    this.railTag.textContent = node.main ? "Main rail" : "Side rail";
+    const profile = this.store.profile();
+    const readOnly = this.store.isReadOnly();
+    this.root.classList.toggle("is-readonly", readOnly);
+    for (const control of this.editControls) {
+      if (control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement) {
+        control.readOnly = readOnly && control.type !== "checkbox";
+        control.disabled = readOnly && control.type === "checkbox";
+      } else if (control instanceof HTMLButtonElement) {
+        control.disabled = readOnly;
+      }
+    }
+    // Dates belong to a timeline; examples to a rulebook. Show only what applies.
+    this.dateField.hidden = !profile.dates;
+    this.examplesField.hidden = !profile.examples;
+    this.titleInput.maxLength = titleLimitFor(node, profile);
+
+    this.railTag.textContent = node.main ? "Main rail" : node.corollary ? "Corollary" : "Side rail";
     this.railTag.classList.toggle("is-main", node.main);
+    this.railTag.classList.toggle("is-corollary", node.corollary);
     this.mainToggle.checked = node.main;
+    this.corollaryToggle.checked = node.corollary;
+    // The two are mutually exclusive, so never offer both at once.
+    this.mainToggle.disabled = readOnly || node.corollary || node.important;
+    this.corollaryToggle.disabled = readOnly || node.main;
+    // Emphasis for side nodes only, and only where the subject allows it.
+    this.importantLabel.hidden = !profile.important;
+    this.importantToggle.checked = node.important;
+    this.importantToggle.disabled = readOnly || node.main;
     this.dateLabel.textContent = node.main ? "Date · required" : "Date · optional";
     this.dateInput.classList.toggle("is-missing", this.isDateMissing());
     if (document.activeElement !== this.titleInput) this.updateCounter();
@@ -226,12 +310,14 @@ export class Sidebar {
 
   /** True when a main-rail node has been left without its mandatory date. */
   private isDateMissing(): boolean {
+    if (!this.store.profile().dates) return false;
     const node = this.store.node(this.currentId);
     return node !== undefined && node.main && this.dateInput.value.trim() === "";
   }
 
   private updateCounter(): void {
-    this.counter.textContent = `${this.titleInput.value.length} / ${TITLE_MAX}`;
+    const limit = this.titleInput.maxLength > 0 ? this.titleInput.maxLength : 0;
+    this.counter.textContent = `${this.titleInput.value.length} / ${limit}`;
   }
 
   private queueSave(): void {
@@ -249,6 +335,7 @@ export class Sidebar {
       date: this.dateInput.value,
       title: this.titleInput.value,
       description: this.descInput.value,
+      examples: this.examplesInput.value,
     });
   }
 

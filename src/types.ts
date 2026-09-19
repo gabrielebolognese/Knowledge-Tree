@@ -14,6 +14,8 @@ export interface TreeNode {
    */
   date: string;
   description: string;
+  /** Worked examples. Only used by subjects whose profile asks for them. */
+  examples: string;
   /** Data URLs or remote URLs, shown in the sidebar. */
   images: string[];
   /** Grid coordinates. Screen position is derived in layout.ts. */
@@ -21,6 +23,17 @@ export interface TreeNode {
   row: number;
   /** True for nodes on the main rail — drawn 20% larger. */
   main: boolean;
+  /**
+   * A sub-point hanging off a side node, for detail that would clutter the
+   * description. Drawn 20% smaller, sits 20% closer, and only ever grows down.
+   * Never true at the same time as `main`.
+   */
+  corollary: boolean;
+  /**
+   * Flags a side node as worth stopping at. Drawn as a rounded box instead of
+   * a circle. Never true on the main rail, which has its own emphasis.
+   */
+  important: boolean;
 }
 
 export interface Edge {
@@ -45,9 +58,22 @@ export type TabId =
   | "scacchi"
   | "economia";
 
+/** How one subject presents its nodes. Subjects are not all the same shape. */
+export interface TabProfile {
+  /** Main-rail nodes carry a date. Only history works this way. */
+  dates: boolean;
+  /** Main-rail nodes are rounded cards showing a description excerpt. */
+  cards: boolean;
+  /** Nodes carry a worked-examples field. */
+  examples: boolean;
+  /** Side nodes can be flagged important, which squares them off. */
+  important: boolean;
+}
+
 export interface TabDef {
   id: TabId;
   label: string;
+  profile: TabProfile;
 }
 
 /** Everything the app owns: eight independent trees and which one is open. */
@@ -55,6 +81,18 @@ export interface Workspace {
   version: 3;
   activeTab: TabId;
   trees: Record<TabId, Tree>;
+}
+
+/** Someone who has published their trees for others to read. */
+export interface PublishedAccount {
+  owner: string;
+  name: string;
+}
+
+/** What the app is currently showing: your own trees, or somebody else's. */
+export interface Viewing {
+  owner: string;
+  name: string;
 }
 
 export interface Cell {
