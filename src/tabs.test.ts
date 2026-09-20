@@ -59,6 +59,7 @@ describe("emptyTrees", () => {
       description: "",
       examples: "",
       translation: "",
+      italian: "",
       images: [],
       col: 0,
       row: 0,

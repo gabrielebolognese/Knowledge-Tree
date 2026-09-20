@@ -31,6 +31,7 @@ function node(id: string, col: number, row: number, main = false, corollary = fa
     description: "",
     examples: "",
     translation: "",
+    italian: "",
     images: [],
     col,
     row,

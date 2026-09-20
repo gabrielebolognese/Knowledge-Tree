@@ -32,6 +32,11 @@ export class Sidebar {
   private readonly examplesField: HTMLElement;
   private readonly examplesInput: HTMLTextAreaElement;
   private readonly translationField: HTMLElement;
+  private readonly italianField: HTMLElement;
+  private readonly italianInput: HTMLInputElement;
+  private readonly descriptionField: HTMLElement;
+  private readonly imagesField: HTMLElement;
+  private readonly connectionsField: HTMLElement;
   private readonly translationInput: HTMLInputElement;
   private readonly titleLabel: HTMLElement;
   private readonly titleInput: HTMLInputElement;
@@ -119,6 +124,14 @@ export class Sidebar {
       this.translationInput,
     );
 
+    this.italianInput = el("input", "kt-url-input");
+    this.italianInput.type = "text";
+    this.italianInput.placeholder = "in italiano";
+    this.italianInput.addEventListener("input", () => this.queueSave());
+
+    this.italianField = el("div", "kt-field");
+    this.italianField.append(el("label", "kt-field-label", "Italian"), this.italianInput);
+
     this.thumbs = el("div", "kt-thumbs");
 
     this.fileInput = el("input");
@@ -196,6 +209,26 @@ export class Sidebar {
     const footer = el("footer", "kt-sidebar-foot");
     footer.append(this.toggles, deleteBtn);
 
+    // Grouped so a subject can drop whole sections it has no use for.
+    this.descriptionField = el("div", "kt-field");
+    this.descriptionField.append(
+      el("label", "kt-field-label", "Description"),
+      this.descInput,
+    );
+
+    this.imagesField = el("div", "kt-field");
+    this.imagesField.append(
+      el("label", "kt-field-label", "Images"),
+      this.thumbs,
+      imageRow,
+    );
+
+    this.connectionsField = el("div", "kt-field");
+    this.connectionsField.append(
+      el("label", "kt-field-label", "Connections"),
+      this.links,
+    );
+
     this.root.append(
       header,
       this.dateField,
@@ -203,14 +236,11 @@ export class Sidebar {
       this.titleInput,
       this.counter,
       this.translationField,
-      el("label", "kt-field-label", "Description"),
-      this.descInput,
+      this.italianField,
+      this.descriptionField,
       this.examplesField,
-      el("label", "kt-field-label", "Images"),
-      this.thumbs,
-      imageRow,
-      el("label", "kt-field-label", "Connections"),
-      this.links,
+      this.imagesField,
+      this.connectionsField,
       footer,
     );
     // Everything here writes, so all of it is switched off in view mode.
@@ -221,6 +251,7 @@ export class Sidebar {
       this.examplesInput,
       this.urlInput,
       this.translationInput,
+      this.italianInput,
       uploadBtn,
       addUrlBtn,
       this.mainToggle,
@@ -276,6 +307,7 @@ export class Sidebar {
     this.titleInput.value = node.title;
     this.examplesInput.value = node.examples;
     this.translationInput.value = node.translation;
+    this.italianInput.value = node.italian;
     this.descInput.value = node.description;
     this.mainToggle.checked = node.main;
     this.corollaryToggle.checked = node.corollary;
@@ -309,6 +341,12 @@ export class Sidebar {
     this.examplesField.hidden = !profile.examples;
     // A vocabulary bubble is a word and its meaning; there are no rails here.
     this.translationField.hidden = !profile.bubbles;
+    this.italianField.hidden = !profile.bubbles;
+    // A bubble is three words and nothing else: no prose, no pictures, and
+    // nothing to connect to.
+    this.descriptionField.hidden = profile.bubbles;
+    this.imagesField.hidden = profile.bubbles;
+    this.connectionsField.hidden = profile.bubbles;
     this.titleLabel.textContent = profile.bubbles ? "Word" : "Title";
     this.titleInput.placeholder = profile.bubbles ? "la palabra" : "Title";
     this.toggles.hidden = profile.bubbles;
@@ -376,6 +414,7 @@ export class Sidebar {
       description: this.descInput.value,
       examples: this.examplesInput.value,
       translation: this.translationInput.value,
+      italian: this.italianInput.value,
     });
   }
 

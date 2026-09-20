@@ -16,6 +16,7 @@ export function seedWorkspace(): Workspace {
         description: "",
         examples: "",
         translation: "",
+        italian: "",
         images: [],
         col: 0,
         row: 0,

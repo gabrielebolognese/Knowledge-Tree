@@ -43,6 +43,7 @@ function word(id: string, spanish: string, english = ""): TreeNode {
     description: "",
     examples: "",
     translation: english,
+    italian: "",
     images: [],
     col: 0,
     row: 0,
@@ -123,6 +124,91 @@ describe("the Spagnolo tab", () => {
     reopened.setActiveTab("spagnolo");
 
     expect(reopened.get().nodes[0]?.translation).toBe("the tree");
+  });
+
+  it("carries a third word: the Italian, which is stored but not drawn", () => {
+    const store = new Store(emptyWorkspace());
+    store.setActiveTab("spagnolo");
+    const id = store.addFreeNode({ col: 0, row: 0 });
+
+    store.updateNode(id, {
+      title: "la mariposa",
+      translation: "the butterfly",
+      italian: "la farfalla",
+    });
+
+    expect(store.node(id)).toMatchObject({
+      title: "la mariposa",
+      translation: "the butterfly",
+      italian: "la farfalla",
+    });
+  });
+
+  it("keeps the Italian out of what the bubble shows", () => {
+    const fitted = fitBubble("la mariposa", "the butterfly", 60);
+    const drawn = [...fitted.wordLines, ...fitted.glossLines].join(" ");
+
+    expect(drawn).toContain("mariposa");
+    expect(drawn).toContain("butterfly");
+    expect(drawn).not.toContain("farfalla");
+  });
+
+  it("sizes the bubble off the two words it shows, not the Italian", () => {
+    const store = new Store(emptyWorkspace());
+    store.setActiveTab("spagnolo");
+    const plain = store.addFreeNode({ col: 0, row: 0 });
+    const verbose = store.addFreeNode({ col: 5, row: 5 });
+
+    store.updateNode(plain, { title: "s\u00ed", translation: "yes" });
+    store.updateNode(verbose, {
+      title: "s\u00ed",
+      translation: "yes",
+      italian: "s\u00ec, certamente, senza alcun dubbio possibile",
+    });
+
+    const a = store.node(plain);
+    const b = store.node(verbose);
+    if (!a || !b) throw new Error("missing node");
+    // Same two visible words, so the same circle however long the Italian is.
+    expect(bubbleRadius(b)).toBe(bubbleRadius(a));
+  });
+
+  it("round-trips the Italian through JSON", () => {
+    const store = new Store(emptyWorkspace());
+    store.setActiveTab("spagnolo");
+    store.updateNode(store.addFreeNode({ col: 0, row: 0 }), {
+      title: "el gato",
+      translation: "the cat",
+      italian: "il gatto",
+    });
+
+    const other = new Store(emptyWorkspace());
+    expect(other.fromJSON(store.toJSON())).toBeNull();
+    other.setActiveTab("spagnolo");
+
+    expect(other.get().nodes[0]?.italian).toBe("il gatto");
+  });
+
+  it("defaults the Italian to empty for words saved before it existed", () => {
+    const store = new Store(emptyWorkspace());
+    const legacy = JSON.stringify({
+      nodes: [
+        {
+          id: "a",
+          title: "hola",
+          translation: "hello",
+          description: "",
+          images: [],
+          col: 0,
+          row: 0,
+          main: false,
+        },
+      ],
+      edges: [],
+    });
+
+    expect(store.fromJSON(legacy)).toBeNull();
+    expect(store.get().nodes[0]?.italian).toBe("");
   });
 
   it("defaults to empty for words saved before translations existed", () => {

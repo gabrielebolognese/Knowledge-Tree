@@ -31,8 +31,10 @@ npm test
 
 `Italiano · Storia · Matematica · Sistemi e reti · Database · Scienze politiche · Scacchi · Economia · Spagnolo`
 
-**Spagnolo is not a tree.** It is a cloud of unconnected entries: type the Spanish
-word or phrase and what it means in English, and that is the whole node. No
+**Spagnolo is not a tree.** It is a cloud of unconnected entries: the Spanish word
+or phrase, what it means in English, and the same in Italian. The bubble shows the
+first two; the Italian is kept for reference only. There is no description, no
+images and no connections panel, because none of them apply. No
 rails, no arrows, no grid. Each bubble is pulled toward the middle at its own
 strength and shoved apart by its neighbours, so the pack settles uneven and a
 little untidy on purpose. Positions are not stored — they are recomputed from the

@@ -33,6 +33,7 @@ function node(id: string, col: number, row: number, main = false): TreeNode {
     description: "",
     examples: "",
     translation: "",
+    italian: "",
     images: [],
     col,
     row,

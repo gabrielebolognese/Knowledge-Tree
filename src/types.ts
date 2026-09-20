@@ -21,6 +21,11 @@ export interface TreeNode {
    * title is the foreign word and this is its translation.
    */
   translation: string;
+  /**
+   * The same thing in Italian. Kept for reference and search only: the bubble
+   * shows the word and its English meaning, not this.
+   */
+  italian: string;
   /** Data URLs or remote URLs, shown in the sidebar. */
   images: string[];
   /** Grid coordinates. Screen position is derived in layout.ts. */
