@@ -1,19 +1,46 @@
 import type { TabDef, TabId, TabProfile, Tree } from "./types.js";
 
 /** Dates anchor a timeline. Only history has one. */
-const HISTORY: TabProfile = { dates: true, cards: false, examples: false, important: false };
+const HISTORY: TabProfile = {
+  dates: true,
+  cards: false,
+  examples: false,
+  important: false,
+  bubbles: false,
+};
 
 /**
  * The maths rail carries rules, not events: big cards with room for a
  * statement and a glimpse of the explanation, plus worked examples. The side
  * rails off it are the different kinds of exercise.
  */
-const RULES: TabProfile = { dates: false, cards: true, examples: true, important: true };
+const RULES: TabProfile = {
+  dates: false,
+  cards: true,
+  examples: true,
+  important: true,
+  bubbles: false,
+};
+
+/** Vocabulary: single words, each with its English meaning, none connected. */
+const WORDS: TabProfile = {
+  dates: false,
+  cards: false,
+  examples: false,
+  important: false,
+  bubbles: true,
+};
 
 /** Plain subjects: titled circles, no dates. */
-const PLAIN: TabProfile = { dates: false, cards: false, examples: false, important: false };
+const PLAIN: TabProfile = {
+  dates: false,
+  cards: false,
+  examples: false,
+  important: false,
+  bubbles: false,
+};
 
-/** The eight subjects, always shown side by side in the top nav. */
+/** The subjects, always shown side by side in the top nav. */
 export const TABS: readonly TabDef[] = [
   { id: "italiano", label: "Italiano", profile: PLAIN },
   { id: "storia", label: "Storia", profile: HISTORY },
@@ -23,6 +50,7 @@ export const TABS: readonly TabDef[] = [
   { id: "scienze-politiche", label: "Scienze politiche", profile: PLAIN },
   { id: "scacchi", label: "Scacchi", profile: PLAIN },
   { id: "economia", label: "Economia", profile: PLAIN },
+  { id: "spagnolo", label: "Spagnolo", profile: WORDS },
 ];
 
 export const DEFAULT_TAB: TabId = "storia";

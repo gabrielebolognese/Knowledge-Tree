@@ -9,9 +9,11 @@ import {
   MAX_SCALE,
   MIN_SCALE,
 } from "./config.js";
+import { SETTLED, stepBubbles, syncBubbles, type Bubble } from "./bubbles.js";
 import {
   cellToWorld,
   contentBounds,
+  fitBubble,
   nodesWithin,
   edgeGeometry,
   exitDistance,
@@ -69,6 +71,11 @@ export class TreeCanvas {
   private readonly edgeLayer: SVGGElement;
   private readonly nodeLayer: SVGGElement;
   private readonly marqueeLayer: SVGGElement;
+
+  /** The word cloud, when the open subject is a vocabulary one. */
+  private bubbles: Bubble[] = [];
+  private bubbleGroups = new Map<NodeId, SVGGElement>();
+  private bubbleFrame: number | null = null;
 
   private viewport: Viewport = { x: 0, y: 0, scale: 1 };
   private readonly selection = new Set<NodeId>();
@@ -191,7 +198,9 @@ export class TreeCanvas {
 
   /** Frames the whole tree. */
   fit(): void {
-    const bounds = contentBounds(this.store.get().nodes, this.store.profile());
+    const bounds = this.store.profile().bubbles
+      ? this.bubbleBounds()
+      : contentBounds(this.store.get().nodes, this.store.profile());
     const rect = this.root.getBoundingClientRect();
     if (!bounds || rect.width === 0) {
       this.viewport = { x: rect.width / 2, y: rect.height / 3, scale: 1 };
@@ -211,6 +220,23 @@ export class TreeCanvas {
       y: rect.height / 2 - ((bounds.minY + bounds.maxY) / 2) * scale,
     };
     this.applyViewport();
+  }
+
+  /** The box the settled cloud occupies, or null while it is empty. */
+  private bubbleBounds(): { minX: number; minY: number; maxX: number; maxY: number } | null {
+    if (this.bubbles.length === 0) return null;
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const b of this.bubbles) {
+      minX = Math.min(minX, b.x - b.radius - 60);
+      minY = Math.min(minY, b.y - b.radius - 60);
+      maxX = Math.max(maxX, b.x + b.radius + 60);
+      maxY = Math.max(maxY, b.y + b.radius + 60);
+    }
+    return { minX, minY, maxX, maxY };
   }
 
   /** Centres one node without changing the zoom level. */
@@ -272,6 +298,13 @@ export class TreeCanvas {
   render(): void {
     const { nodes, edges } = this.store.get();
     const profile = this.store.profile();
+
+    if (profile.bubbles) {
+      this.renderBubbles(nodes);
+      return;
+    }
+    this.stopBubbles();
+
     const byId = new Map<NodeId, TreeNode>(nodes.map((n) => [n.id, n]));
 
     const edgeFrag = document.createDocumentFragment();
@@ -302,6 +335,96 @@ export class TreeCanvas {
     const nodeFrag = document.createDocumentFragment();
     for (const node of nodes) nodeFrag.append(this.renderNode(node, profile));
     this.nodeLayer.replaceChildren(nodeFrag);
+  }
+
+  /**
+   * A cloud of unconnected words. There are no arrows and no grid: gravity
+   * decides where each one sits, so this paints them and lets the loop settle.
+   */
+  private renderBubbles(nodes: readonly TreeNode[]): void {
+    this.bubbles = syncBubbles(this.bubbles, nodes);
+    this.edgeLayer.replaceChildren();
+    this.bubbleGroups.clear();
+
+    const frag = document.createDocumentFragment();
+    for (const node of nodes) {
+      const bubble = this.bubbles.find((b) => b.id === node.id);
+      if (!bubble) continue;
+
+      const group = svg("g");
+      const classes = ["kt-node", "kt-bubble"];
+      if (this.selection.has(node.id)) classes.push("is-selected");
+      group.setAttribute("class", classes.join(" "));
+      group.dataset["id"] = node.id;
+      group.setAttribute("transform", `translate(${bubble.x} ${bubble.y})`);
+
+      const circle = svg("circle");
+      circle.setAttribute("class", "kt-circle");
+      circle.setAttribute("r", String(bubble.radius));
+      group.append(circle);
+
+      const fitted = fitBubble(node.title, node.translation, bubble.radius);
+
+      const word = svg("text");
+      word.setAttribute("class", node.title ? "kt-word" : "kt-word is-empty");
+      word.setAttribute("text-anchor", "middle");
+      word.setAttribute("font-size", String(fitted.wordFontSize));
+      fitted.wordLines.forEach((line, i) => {
+        const tspan = svg("tspan");
+        tspan.setAttribute("x", "0");
+        tspan.setAttribute("y", String(fitted.firstBaseline + i * fitted.wordLineHeight));
+        tspan.textContent = line;
+        word.append(tspan);
+      });
+      group.append(word);
+
+      if (fitted.glossBaseline !== null) {
+        const gloss = svg("text");
+        gloss.setAttribute("class", "kt-gloss");
+        gloss.setAttribute("text-anchor", "middle");
+        gloss.setAttribute("font-size", String(fitted.glossFontSize));
+        fitted.glossLines.forEach((line, i) => {
+          const tspan = svg("tspan");
+          tspan.setAttribute("x", "0");
+          tspan.setAttribute("y", String((fitted.glossBaseline ?? 0) + i * fitted.glossLineHeight));
+          tspan.textContent = line;
+          gloss.append(tspan);
+        });
+        group.append(gloss);
+      }
+
+      this.bubbleGroups.set(node.id, group);
+      frag.append(group);
+    }
+
+    this.nodeLayer.replaceChildren(frag);
+    this.runBubbles();
+  }
+
+  /** Nudges the cloud along until it comes to rest. */
+  private runBubbles(): void {
+    if (this.bubbleFrame !== null || this.bubbles.length === 0) return;
+
+    const tick = (): void => {
+      this.bubbleFrame = null;
+      if (this.bubbles.length === 0) return;
+
+      const movement = stepBubbles(this.bubbles);
+      for (const bubble of this.bubbles) {
+        this.bubbleGroups
+          .get(bubble.id)
+          ?.setAttribute("transform", `translate(${bubble.x} ${bubble.y})`);
+      }
+      if (movement > SETTLED) this.bubbleFrame = requestAnimationFrame(tick);
+    };
+    this.bubbleFrame = requestAnimationFrame(tick);
+  }
+
+  private stopBubbles(): void {
+    if (this.bubbleFrame !== null) cancelAnimationFrame(this.bubbleFrame);
+    this.bubbleFrame = null;
+    this.bubbles = [];
+    this.bubbleGroups.clear();
   }
 
   private renderNode(node: TreeNode, profile: TabProfile): SVGGElement {
@@ -647,8 +770,8 @@ export class TreeCanvas {
       const pointer = this.screenToWorld(event.clientX, event.clientY);
       const centre = cellToWorld(node);
 
-      // Nothing is draggable in view mode, but selecting still is.
-      if (this.store.isReadOnly()) {
+      // Gravity owns bubble positions, so they select but never drag.
+      if (this.store.isReadOnly() || this.store.profile().bubbles) {
         this.setSelected(id);
         return;
       }
@@ -678,7 +801,7 @@ export class TreeCanvas {
     }
 
     // Ctrl on empty space draws a selection box instead of panning.
-    if (event.button === 0 && (event.ctrlKey || event.metaKey)) {
+    if (event.button === 0 && (event.ctrlKey || event.metaKey) && !this.store.profile().bubbles) {
       event.preventDefault();
       const world = this.screenToWorld(event.clientX, event.clientY);
       this.marquee = {
@@ -825,6 +948,12 @@ export class TreeCanvas {
   private readonly onDoubleClick = (event: MouseEvent): void => {
     const target = event.target as Element;
     if (target.closest(".kt-node") || this.store.isReadOnly()) return;
+    // A word belongs wherever gravity puts it, not where you double-clicked.
+    if (this.store.profile().bubbles) {
+      const id = this.store.addFreeNode({ col: 0, row: 0 });
+      if (id) this.setSelected(id);
+      return;
+    }
 
     event.preventDefault();
     const world = this.screenToWorld(event.clientX, event.clientY);

@@ -29,6 +29,8 @@ export const DATE_GAP = 12;
 export const TITLE_MAX = 50;
 /** Title cap on a card, which has far more room. */
 export const TITLE_MAX_CARD = 200;
+/** Title cap on a vocabulary bubble, which holds a single word. */
+export const TITLE_MAX_BUBBLE = 30;
 /** Hard cap the store enforces, so reshaping a node never truncates silently. */
 export const TITLE_LIMIT = 200;
 
@@ -44,6 +46,11 @@ export const CARD_CORNER = 18;
 export const IMPORTANT_W = 180;
 export const IMPORTANT_H = 116;
 export const IMPORTANT_CORNER = 15;
+
+/** A cloud of unconnected words: sizes, and the gap gravity must not close. */
+export const BUBBLE_MIN_R = 38;
+export const BUBBLE_MAX_R = 78;
+export const BUBBLE_MARGIN = 26;
 export const CARD_PADDING = 18;
 
 export const MIN_SCALE = 0.02;

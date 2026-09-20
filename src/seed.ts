@@ -15,6 +15,7 @@ export function seedWorkspace(): Workspace {
         date: "1796",
         description: "",
         examples: "",
+        translation: "",
         images: [],
         col: 0,
         row: 0,

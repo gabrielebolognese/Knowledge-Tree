@@ -29,7 +29,14 @@ npm test
 
 ## Tabs
 
-`Italiano · Storia · Matematica · Sistemi e reti · Database · Scienze politiche · Scacchi · Economia`
+`Italiano · Storia · Matematica · Sistemi e reti · Database · Scienze politiche · Scacchi · Economia · Spagnolo`
+
+**Spagnolo is not a tree.** It is a cloud of unconnected words: type the Spanish
+word (30 characters) and what it means in English, and that is the whole node. No
+rails, no arrows, no grid. Each bubble is pulled toward the middle at its own
+strength and shoved apart by its neighbours, so the pack settles uneven and a
+little untidy on purpose. Positions are not stored — they are recomputed from the
+word id, so the same words always land the same way.
 
 Tabs share nothing: separate nodes, separate arrows, separate main rail. Switching
 keeps each tab's pan and zoom for the session, so you come back where you left off.

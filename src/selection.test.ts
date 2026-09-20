@@ -32,6 +32,7 @@ function node(id: string, col: number, row: number, main = false): TreeNode {
     date: "",
     description: "",
     examples: "",
+    translation: "",
     images: [],
     col,
     row,

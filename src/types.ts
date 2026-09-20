@@ -16,6 +16,11 @@ export interface TreeNode {
   description: string;
   /** Worked examples. Only used by subjects whose profile asks for them. */
   examples: string;
+  /**
+   * What the title means in English. Used by vocabulary subjects, where the
+   * title is the foreign word and this is its translation.
+   */
+  translation: string;
   /** Data URLs or remote URLs, shown in the sidebar. */
   images: string[];
   /** Grid coordinates. Screen position is derived in layout.ts. */
@@ -56,7 +61,8 @@ export type TabId =
   | "database"
   | "scienze-politiche"
   | "scacchi"
-  | "economia";
+  | "economia"
+  | "spagnolo";
 
 /** How one subject presents its nodes. Subjects are not all the same shape. */
 export interface TabProfile {
@@ -68,6 +74,11 @@ export interface TabProfile {
   examples: boolean;
   /** Side nodes can be flagged important, which squares them off. */
   important: boolean;
+  /**
+   * A loose cloud of unconnected words rather than a tree: no rails, no
+   * arrows, positions decided by gravity instead of the grid.
+   */
+  bubbles: boolean;
 }
 
 export interface TabDef {

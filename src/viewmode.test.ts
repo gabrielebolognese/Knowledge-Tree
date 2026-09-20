@@ -31,6 +31,7 @@ function remoteNode(id: string, title: string, date: string) {
     date,
     description: "",
     examples: "",
+    translation: "",
     images: [],
     col: 0,
     row: 0,

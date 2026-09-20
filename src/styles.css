@@ -363,6 +363,33 @@ body {
   font-style: italic;
 }
 
+/* A vocabulary bubble: the word, and under it what it means. */
+.kt-bubble .kt-circle {
+  stroke-width: 1.8;
+}
+
+.kt-word {
+  fill: var(--text);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.kt-word.is-empty {
+  fill: var(--muted);
+  font-style: italic;
+}
+
+.kt-gloss {
+  fill: var(--yellow);
+  font-weight: 400;
+  font-style: italic;
+}
+
+.zoom-far .kt-word,
+.zoom-far .kt-gloss {
+  display: none;
+}
+
 /* Date, outside the circle to its left. */
 .kt-date {
   fill: var(--muted);

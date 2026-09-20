@@ -14,6 +14,7 @@ import {
   IMPORTANT_W,
   ROW_SNAP,
   TITLE_MAX,
+  TITLE_MAX_BUBBLE,
   TITLE_MAX_CARD,
 } from "./config.js";
 import { fitMathLine, measureMath, type MathBox } from "./mathnotation.js";
@@ -67,6 +68,7 @@ export function shapeOf(
 
 /** Characters a title may hold, which depends on what it is drawn on. */
 export function titleLimitFor(node: Pick<TreeNode, "main">, profile: TabProfile): number {
+  if (profile.bubbles) return TITLE_MAX_BUBBLE;
   return isCard(node, profile) ? TITLE_MAX_CARD : TITLE_MAX;
 }
 
@@ -460,6 +462,68 @@ export function nodesWithin(
   box: Bounds,
 ): TreeNode[] {
   return nodes.filter((node) => boundsIntersect(nodeBounds(node, profile), box));
+}
+
+const BUBBLE_WORD_RATIO = 0.26;
+const BUBBLE_GLOSS_RATIO = 0.2;
+
+export interface FittedBubble {
+  wordLines: string[];
+  wordFontSize: number;
+  wordLineHeight: number;
+  glossLines: string[];
+  glossFontSize: number;
+  glossLineHeight: number;
+  /** Baseline of the first word line, relative to the bubble's centre. */
+  firstBaseline: number;
+  /** Baseline of the first gloss line, or null when there is no translation. */
+  glossBaseline: number | null;
+}
+
+/**
+ * A vocabulary bubble: the word, and under it what it means. Both are wrapped
+ * to the circle, and the pair is centred as one block.
+ */
+export function fitBubble(word: string, translation: string, radius: number): FittedBubble {
+  const wordFont = Math.max(11, Math.round(radius * BUBBLE_WORD_RATIO));
+  const glossFont = Math.max(9, Math.round(radius * BUBBLE_GLOSS_RATIO));
+  const wordLH = wordFont * 1.15;
+  const glossLH = glossFont * 1.15;
+
+  const budget = (fontSize: number): number =>
+    Math.max(1, Math.floor((radius * 1.55) / (fontSize * CHAR_RATIO)));
+
+  const wrap = (text: string, fontSize: number, maxLines: number): string[] => {
+    const words = text.trim().split(/\s+/).filter(Boolean);
+    if (words.length === 0) return [];
+    const room = budget(fontSize);
+    const { lines, leftover } = wrapToBudgets(words, Array(maxLines).fill(room));
+    if (leftover && lines.length > 0) {
+      const last = lines[lines.length - 1] ?? "";
+      lines[lines.length - 1] = `${last.slice(0, Math.max(1, room - 1))}\u2026`;
+    }
+    return lines;
+  };
+
+  const wordLines = wrap(word || "\u2026", wordFont, 2);
+  const glossLines = wrap(translation, glossFont, 2);
+
+  const wordHeight = wordLines.length * wordLH;
+  const glossHeight = glossLines.length * glossLH;
+  const gap = glossLines.length > 0 ? wordFont * 0.4 : 0;
+  const total = wordHeight + gap + glossHeight;
+
+  const top = -total / 2;
+  return {
+    wordLines,
+    wordFontSize: wordFont,
+    wordLineHeight: wordLH,
+    glossLines,
+    glossFontSize: glossFont,
+    glossLineHeight: glossLH,
+    firstBaseline: top + wordFont * 0.8,
+    glossBaseline: glossLines.length > 0 ? top + wordHeight + gap + glossFont * 0.8 : null,
+  };
 }
 
 /** Bounding box of all nodes in world units, padded by their radius. */

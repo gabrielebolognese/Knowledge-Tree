@@ -24,6 +24,7 @@ function node(partial: Partial<TreeNode> = {}): TreeNode {
     date: "",
     description: "",
     examples: "",
+    translation: "",
     images: [],
     col: 0,
     row: 0,

@@ -31,6 +31,9 @@ export class Sidebar {
   private readonly dateInput: HTMLInputElement;
   private readonly examplesField: HTMLElement;
   private readonly examplesInput: HTMLTextAreaElement;
+  private readonly translationField: HTMLElement;
+  private readonly translationInput: HTMLInputElement;
+  private readonly titleLabel: HTMLElement;
   private readonly titleInput: HTMLInputElement;
   private readonly counter: HTMLElement;
   private readonly descInput: HTMLTextAreaElement;
@@ -38,6 +41,7 @@ export class Sidebar {
   private readonly urlInput: HTMLInputElement;
   private readonly fileInput: HTMLInputElement;
   private readonly links: HTMLElement;
+  private readonly toggles: HTMLElement;
   private readonly mainToggle: HTMLInputElement;
   private readonly corollaryToggle: HTMLInputElement;
   private readonly importantToggle: HTMLInputElement;
@@ -75,6 +79,7 @@ export class Sidebar {
       this.queueSave();
     });
 
+    this.titleLabel = el("label", "kt-field-label", "Title");
     this.dateField = el("div", "kt-field");
     this.dateField.append(this.dateLabel, this.dateInput);
 
@@ -100,6 +105,18 @@ export class Sidebar {
 
     this.examplesField = el("div", "kt-field");
     this.examplesField.append(el("label", "kt-field-label", "Examples"), this.examplesInput);
+
+    this.translationInput = el("input", "kt-title-input");
+    this.translationInput.type = "text";
+    this.translationInput.maxLength = 60;
+    this.translationInput.placeholder = "in English";
+    this.translationInput.addEventListener("input", () => this.queueSave());
+
+    this.translationField = el("div", "kt-field");
+    this.translationField.append(
+      el("label", "kt-field-label", "English"),
+      this.translationInput,
+    );
 
     this.thumbs = el("div", "kt-thumbs");
 
@@ -172,18 +189,19 @@ export class Sidebar {
       this.callbacks.onDismiss();
     });
 
-    const toggles = el("div", "kt-toggles");
-    toggles.append(toggleLabel, corollaryLabel, this.importantLabel);
+    this.toggles = el("div", "kt-toggles");
+    this.toggles.append(toggleLabel, corollaryLabel, this.importantLabel);
 
     const footer = el("footer", "kt-sidebar-foot");
-    footer.append(toggles, deleteBtn);
+    footer.append(this.toggles, deleteBtn);
 
     this.root.append(
       header,
       this.dateField,
-      el("label", "kt-field-label", "Title"),
+      this.titleLabel,
       this.titleInput,
       this.counter,
+      this.translationField,
       el("label", "kt-field-label", "Description"),
       this.descInput,
       this.examplesField,
@@ -201,6 +219,7 @@ export class Sidebar {
       this.descInput,
       this.examplesInput,
       this.urlInput,
+      this.translationInput,
       uploadBtn,
       addUrlBtn,
       this.mainToggle,
@@ -255,6 +274,7 @@ export class Sidebar {
     this.dateInput.value = node.date;
     this.titleInput.value = node.title;
     this.examplesInput.value = node.examples;
+    this.translationInput.value = node.translation;
     this.descInput.value = node.description;
     this.mainToggle.checked = node.main;
     this.corollaryToggle.checked = node.corollary;
@@ -286,9 +306,20 @@ export class Sidebar {
     // Dates belong to a timeline; examples to a rulebook. Show only what applies.
     this.dateField.hidden = !profile.dates;
     this.examplesField.hidden = !profile.examples;
+    // A vocabulary bubble is a word and its meaning; there are no rails here.
+    this.translationField.hidden = !profile.bubbles;
+    this.titleLabel.textContent = profile.bubbles ? "Word" : "Title";
+    this.titleInput.placeholder = profile.bubbles ? "la palabra" : "Title";
+    this.toggles.hidden = profile.bubbles;
     this.titleInput.maxLength = titleLimitFor(node, profile);
 
-    this.railTag.textContent = node.main ? "Main rail" : node.corollary ? "Corollary" : "Side rail";
+    this.railTag.textContent = profile.bubbles
+      ? "Word"
+      : node.main
+        ? "Main rail"
+        : node.corollary
+          ? "Corollary"
+          : "Side rail";
     this.railTag.classList.toggle("is-main", node.main);
     this.railTag.classList.toggle("is-corollary", node.corollary);
     this.mainToggle.checked = node.main;
@@ -336,6 +367,7 @@ export class Sidebar {
       title: this.titleInput.value,
       description: this.descInput.value,
       examples: this.examplesInput.value,
+      translation: this.translationInput.value,
     });
   }
 

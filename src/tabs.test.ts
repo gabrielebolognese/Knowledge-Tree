@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_TAB, TABS, emptyTrees, isTabId, labelFor } from "./tabs.js";
 
 describe("TABS", () => {
-  it("is the eight subjects, in order", () => {
+  it("is the nine subjects, in order", () => {
     expect(TABS.map((tab) => tab.label)).toEqual([
       "Italiano",
       "Storia",
@@ -13,6 +13,7 @@ describe("TABS", () => {
       "Scienze politiche",
       "Scacchi",
       "Economia",
+      "Spagnolo",
     ]);
   });
 
@@ -57,6 +58,7 @@ describe("emptyTrees", () => {
       date: "",
       description: "",
       examples: "",
+      translation: "",
       images: [],
       col: 0,
       row: 0,

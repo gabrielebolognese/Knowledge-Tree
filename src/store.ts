@@ -59,6 +59,7 @@ function normalizeTree(value: unknown): Tree | null {
       date: str(n["date"]),
       description: str(n["description"]),
       examples: str(n["examples"]),
+      translation: str(n["translation"]),
       images: Array.isArray(n["images"])
         ? n["images"].filter((i): i is string => typeof i === "string")
         : [],
@@ -269,6 +270,7 @@ export class Store {
       date: "",
       description: "",
       examples: "",
+      translation: "",
       images: [],
       col: cell.col,
       row: cell.row,
@@ -379,6 +381,7 @@ export class Store {
         | "date"
         | "description"
         | "examples"
+        | "translation"
         | "images"
         | "main"
         | "corollary"
@@ -394,6 +397,7 @@ export class Store {
     if (patch.date !== undefined) node.date = patch.date;
     if (patch.description !== undefined) node.description = patch.description;
     if (patch.examples !== undefined) node.examples = patch.examples;
+    if (patch.translation !== undefined) node.translation = patch.translation;
     if (patch.images !== undefined) node.images = patch.images;
 
     // A node is on the main rail, or a corollary, or neither — never both.

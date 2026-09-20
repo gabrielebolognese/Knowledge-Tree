@@ -202,7 +202,9 @@ function boot(): void {
   }
 
   function addMainNode(): void {
-    const id = store.addMainNode();
+    const id = store.profile().bubbles
+      ? store.addFreeNode({ col: 0, row: 0 })
+      : store.addMainNode();
     canvas.setSelected(id);
     canvas.focus(id);
     sidebar.focusTitle();
@@ -280,6 +282,13 @@ function boot(): void {
       btn.classList.toggle("is-active", isActive);
       btn.setAttribute("aria-current", isActive ? "page" : "false");
     }
+
+    const bubbles = store.profile().bubbles;
+    addNodeBtn.textContent = bubbles ? "+ Word" : "+ Main node";
+    addNodeBtn.title = bubbles
+      ? "Add a word to the cloud"
+      : "Extend the main rail";
+    startBtn.textContent = bubbles ? "Add the first word" : "Plant the first node";
 
     emptyState.hidden = store.get().nodes.length > 0;
     emptyText.textContent = viewing
