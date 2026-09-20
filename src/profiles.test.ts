@@ -1,6 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { CARD_H, CARD_W, COL_W, R_SIDE, ROW_H, TITLE_MAX, TITLE_MAX_CARD } from "./config.js";
+import {
+  CARD_H,
+  CARD_W,
+  COL_W,
+  R_SIDE,
+  ROW_H,
+  TITLE_LIMIT,
+  TITLE_MAX,
+  TITLE_MAX_CARD,
+} from "./config.js";
 import {
   cellToWorld,
   edgeGeometry,
@@ -247,10 +256,11 @@ describe("title capacity across shapes", () => {
     expect(store.node(id)?.title).toHaveLength(TITLE_MAX_CARD);
   });
 
-  it("still caps anything longer than a card allows", () => {
+  it("still has a backstop against pathological input", () => {
     const store = new Store(emptyWorkspace());
     const id = store.addMainNode();
-    store.updateNode(id, { title: "y".repeat(500) });
-    expect(store.node(id)?.title).toHaveLength(TITLE_MAX_CARD);
+    store.updateNode(id, { title: "y".repeat(9000) });
+    // A card's own 200 limit is enforced by the input, not the store.
+    expect(store.node(id)?.title).toHaveLength(TITLE_LIMIT);
   });
 });

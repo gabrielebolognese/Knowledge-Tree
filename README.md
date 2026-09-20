@@ -31,12 +31,17 @@ npm test
 
 `Italiano · Storia · Matematica · Sistemi e reti · Database · Scienze politiche · Scacchi · Economia · Spagnolo`
 
-**Spagnolo is not a tree.** It is a cloud of unconnected words: type the Spanish
-word (30 characters) and what it means in English, and that is the whole node. No
+**Spagnolo is not a tree.** It is a cloud of unconnected entries: type the Spanish
+word or phrase and what it means in English, and that is the whole node. No
 rails, no arrows, no grid. Each bubble is pulled toward the middle at its own
 strength and shoved apart by its neighbours, so the pack settles uneven and a
 little untidy on purpose. Positions are not stored — they are recomputed from the
 word id, so the same words always land the same way.
+
+There is no length limit, so whole phrases work. A bubble grows with what is in
+it, but logarithmically: ten more characters is worth ~15px on a two-character
+word and ~0.6px on a 250-character one, flattening out at a 108px radius. Past
+that the type shrinks instead, down to 9px, and only then is anything cut.
 
 Tabs share nothing: separate nodes, separate arrows, separate main rail. Switching
 keeps each tab's pan and zoom for the session, so you come back where you left off.

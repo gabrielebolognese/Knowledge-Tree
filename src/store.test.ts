@@ -147,12 +147,12 @@ describe("editing", () => {
     const store = new Store(emptyWorkspace());
     const id = store.addMainNode();
 
-    store.updateNode(id, { title: "x".repeat(500) });
+    store.updateNode(id, { title: "x".repeat(900) });
 
     // The store holds the card limit; the narrower circle limit is enforced
     // by the input, so reshaping a node can never silently eat its title.
     expect(store.node(id)?.title).toHaveLength(TITLE_LIMIT);
-    expect(TITLE_LIMIT).toBe(200);
+    expect(TITLE_LIMIT).toBe(500);
   });
 
   it("notifies subscribers and persists", () => {

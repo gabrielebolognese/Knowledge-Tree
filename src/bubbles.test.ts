@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { BUBBLE_MARGIN, BUBBLE_MAX_R, BUBBLE_MIN_R, TITLE_MAX_BUBBLE } from "./config.js";
+import { BUBBLE_MARGIN, BUBBLE_MAX_R, BUBBLE_MIN_R } from "./config.js";
 import {
   anyOverlap,
   bubbleRadius,
@@ -14,7 +14,7 @@ import {
 import { fitBubble, titleLimitFor } from "./layout.js";
 import { Store } from "./store.js";
 import { DEFAULT_TAB, emptyTrees, profileFor } from "./tabs.js";
-import { WORDS_PROFILE } from "./testing.js";
+import { RULES_PROFILE, WORDS_PROFILE } from "./testing.js";
 import type { TreeNode, Workspace } from "./types.js";
 
 function memoryStorage(): Storage {
@@ -79,10 +79,23 @@ describe("the Spagnolo tab", () => {
     }
   });
 
-  it("caps a word at 30 characters", () => {
+  it("puts no limit on the length of a phrase", () => {
     const node = { main: false };
-    expect(titleLimitFor(node, WORDS_PROFILE)).toBe(TITLE_MAX_BUBBLE);
-    expect(titleLimitFor(node, WORDS_PROFILE)).toBe(30);
+    expect(titleLimitFor(node, WORDS_PROFILE)).toBe(Number.POSITIVE_INFINITY);
+    // Every other subject still has one.
+    expect(Number.isFinite(titleLimitFor(node, RULES_PROFILE))).toBe(true);
+  });
+
+  it("stores a long phrase without cutting it", () => {
+    const store = new Store(emptyWorkspace());
+    store.setActiveTab("spagnolo");
+    const id = store.addFreeNode({ col: 0, row: 0 });
+    const phrase =
+      "no hay mal que por bien no venga, aunque a veces cueste mucho verlo en el momento";
+
+    store.updateNode(id, { title: phrase, translation: "every cloud has a silver lining" });
+
+    expect(store.node(id)?.title).toBe(phrase);
   });
 
   it("carries the English meaning alongside the word", () => {
@@ -137,11 +150,36 @@ describe("bubble sizing", () => {
     expect(longGloss).toBeGreaterThan(shortBoth);
   });
 
-  it("stays between the bounds, even for a 30-character word", () => {
+  it("stays between the bounds, however long the phrase", () => {
     expect(bubbleRadius({ title: "", translation: "" })).toBe(BUBBLE_MIN_R);
-    const longest = bubbleRadius({ title: "x".repeat(TITLE_MAX_BUBBLE), translation: "" });
-    expect(longest).toBeLessThanOrEqual(BUBBLE_MAX_R);
-    expect(longest).toBeGreaterThan(BUBBLE_MIN_R);
+
+    for (const length of [1, 30, 120, 500, 5000]) {
+      const r = bubbleRadius({ title: "x".repeat(length), translation: "" });
+      expect(r).toBeGreaterThanOrEqual(BUBBLE_MIN_R);
+      expect(r).toBeLessThanOrEqual(BUBBLE_MAX_R);
+    }
+  });
+
+  it("grows quickly at first, then hardly at all", () => {
+    const at = (n: number): number => bubbleRadius({ title: "x".repeat(n), translation: "" });
+
+    // Ten more characters early on is worth far more than ten more later.
+    const early = at(15) - at(5);
+    const late = at(215) - at(205);
+    expect(early).toBeGreaterThan(late * 5);
+  });
+
+  it("keeps growing with length, just ever more slowly", () => {
+    const at = (n: number): number => bubbleRadius({ title: "x".repeat(n), translation: "" });
+    expect(at(5)).toBeLessThan(at(20));
+    expect(at(20)).toBeLessThan(at(80));
+    expect(at(80)).toBeLessThan(at(300));
+  });
+
+  it("never lets a long phrase dwarf a short one", () => {
+    const short = bubbleRadius({ title: "sí", translation: "yes" });
+    const huge = bubbleRadius({ title: "x".repeat(4000), translation: "" });
+    expect(huge / short).toBeLessThan(3);
   });
 });
 
@@ -307,7 +345,7 @@ describe("what a bubble shows", () => {
   });
 
   it("keeps a full-length word inside its bubble", () => {
-    const longest = "x".repeat(TITLE_MAX_BUBBLE);
+    const longest = "x".repeat(30);
     const radius = bubbleRadius({ title: longest, translation: "" });
     const fitted = fitBubble(longest, "", radius);
 
@@ -317,9 +355,53 @@ describe("what a bubble shows", () => {
     expect(bottom).toBeLessThan(radius);
   });
 
-  it("marks a word too long to fit", () => {
-    const fitted = fitBubble("palabra ".repeat(12), "", 40);
-    expect(fitted.wordLines.length).toBeLessThanOrEqual(2);
+  it("shrinks the type for a phrase rather than overflowing", () => {
+    const shortWord = fitBubble("casa", "house", 60);
+    const phrase = "no hay mal que por bien no venga, aunque cueste verlo";
+    const fitted = fitBubble(
+      phrase,
+      "every cloud has a silver lining",
+      bubbleRadius({ title: phrase, translation: "every cloud has a silver lining" }),
+    );
+
+    expect(fitted.wordFontSize).toBeLessThan(shortWord.wordFontSize);
+    expect(fitted.wordLines.length).toBeGreaterThan(1);
+  });
+
+  it("keeps every line of a phrase inside the circle", () => {
+    const phrase =
+      "no hay mal que por bien no venga, aunque a veces cueste mucho verlo en el momento";
+    const english = "a long English rendering of the very same saying";
+    const radius = bubbleRadius({ title: phrase, translation: english });
+    const fitted = fitBubble(phrase, english, radius);
+
+    const lines = [
+      ...fitted.wordLines.map((text, i) => ({
+        text,
+        y: fitted.firstBaseline + i * fitted.wordLineHeight,
+        font: fitted.wordFontSize,
+      })),
+      ...fitted.glossLines.map((text, i) => ({
+        text,
+        y: (fitted.glossBaseline ?? 0) + i * fitted.glossLineHeight,
+        font: fitted.glossFontSize,
+      })),
+    ];
+
+    expect(lines.length).toBeGreaterThan(2);
+    for (const line of lines) {
+      const halfWidth = (line.text.length * line.font * 0.55) / 2;
+      const top = line.y - line.font * 0.8;
+      const bottom = line.y + line.font * 0.25;
+      const far = Math.max(Math.abs(top), Math.abs(bottom));
+      expect(Math.hypot(halfWidth, far)).toBeLessThanOrEqual(radius);
+    }
+  });
+
+  it("only cuts text when even the smallest type will not do", () => {
+    const fitted = fitBubble("palabra ".repeat(200), "", BUBBLE_MAX_R);
+
+    expect(fitted.wordFontSize).toBe(9);
     expect(fitted.wordLines[fitted.wordLines.length - 1]?.endsWith("…")).toBe(true);
   });
 });

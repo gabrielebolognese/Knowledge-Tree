@@ -14,7 +14,6 @@ import {
   IMPORTANT_W,
   ROW_SNAP,
   TITLE_MAX,
-  TITLE_MAX_BUBBLE,
   TITLE_MAX_CARD,
 } from "./config.js";
 import { fitMathLine, measureMath, type MathBox } from "./mathnotation.js";
@@ -68,7 +67,8 @@ export function shapeOf(
 
 /** Characters a title may hold, which depends on what it is drawn on. */
 export function titleLimitFor(node: Pick<TreeNode, "main">, profile: TabProfile): number {
-  if (profile.bubbles) return TITLE_MAX_BUBBLE;
+  // A bubble takes phrases, so nothing is cut off while you are typing.
+  if (profile.bubbles) return Number.POSITIVE_INFINITY;
   return isCard(node, profile) ? TITLE_MAX_CARD : TITLE_MAX;
 }
 
@@ -464,8 +464,14 @@ export function nodesWithin(
   return nodes.filter((node) => boundsIntersect(nodeBounds(node, profile), box));
 }
 
-const BUBBLE_WORD_RATIO = 0.26;
-const BUBBLE_GLOSS_RATIO = 0.2;
+/** The text box inscribed in a bubble: its corners stay inside the circle. */
+const BUBBLE_BOX_W = 0.74;
+const BUBBLE_BOX_H = 0.66;
+const BUBBLE_LINE = 1.18;
+const BUBBLE_GLOSS_SCALE = 0.74;
+const BUBBLE_MAX_LINES = 10;
+const BUBBLE_MIN_FONT = 9;
+const BUBBLE_MAX_FONT = 22;
 
 export interface FittedBubble {
   wordLines: string[];
@@ -480,40 +486,19 @@ export interface FittedBubble {
   glossBaseline: number | null;
 }
 
-/**
- * A vocabulary bubble: the word, and under it what it means. Both are wrapped
- * to the circle, and the pair is centred as one block.
- */
-export function fitBubble(word: string, translation: string, radius: number): FittedBubble {
-  const wordFont = Math.max(11, Math.round(radius * BUBBLE_WORD_RATIO));
-  const glossFont = Math.max(9, Math.round(radius * BUBBLE_GLOSS_RATIO));
-  const wordLH = wordFont * 1.15;
-  const glossLH = glossFont * 1.15;
-
-  const budget = (fontSize: number): number =>
-    Math.max(1, Math.floor((radius * 1.55) / (fontSize * CHAR_RATIO)));
-
-  const wrap = (text: string, fontSize: number, maxLines: number): string[] => {
-    const words = text.trim().split(/\s+/).filter(Boolean);
-    if (words.length === 0) return [];
-    const room = budget(fontSize);
-    const { lines, leftover } = wrapToBudgets(words, Array(maxLines).fill(room));
-    if (leftover && lines.length > 0) {
-      const last = lines[lines.length - 1] ?? "";
-      lines[lines.length - 1] = `${last.slice(0, Math.max(1, room - 1))}\u2026`;
-    }
-    return lines;
-  };
-
-  const wordLines = wrap(word || "\u2026", wordFont, 2);
-  const glossLines = wrap(translation, glossFont, 2);
-
+function assembleBubble(
+  wordLines: string[],
+  glossLines: string[],
+  wordFont: number,
+  glossFont: number,
+): FittedBubble {
+  const wordLH = wordFont * BUBBLE_LINE;
+  const glossLH = glossFont * BUBBLE_LINE;
   const wordHeight = wordLines.length * wordLH;
-  const glossHeight = glossLines.length * glossLH;
-  const gap = glossLines.length > 0 ? wordFont * 0.4 : 0;
-  const total = wordHeight + gap + glossHeight;
-
+  const gap = glossLines.length > 0 ? wordFont * 0.45 : 0;
+  const total = wordHeight + gap + glossLines.length * glossLH;
   const top = -total / 2;
+
   return {
     wordLines,
     wordFontSize: wordFont,
@@ -524,6 +509,59 @@ export function fitBubble(word: string, translation: string, radius: number): Fi
     firstBaseline: top + wordFont * 0.8,
     glossBaseline: glossLines.length > 0 ? top + wordHeight + gap + glossFont * 0.8 : null,
   };
+}
+
+/**
+ * A vocabulary bubble: the phrase, and under it what it means.
+ *
+ * The circle only grows logarithmically, so past a certain length the type has
+ * to give instead. This picks the largest size that still fits both blocks in
+ * the box inscribed in the circle, and only cuts text when even the smallest
+ * will not do.
+ */
+export function fitBubble(word: string, translation: string, radius: number): FittedBubble {
+  const boxW = radius * BUBBLE_BOX_W * 2;
+  const boxH = radius * BUBBLE_BOX_H * 2;
+  const words = (word.trim() || "\u2026").split(/\s+/).filter(Boolean);
+  const gloss = translation.trim().split(/\s+/).filter(Boolean);
+
+  const budgetFor = (fontSize: number): number =>
+    Math.max(1, Math.floor(boxW / (fontSize * CHAR_RATIO)));
+
+  const start = Math.max(
+    BUBBLE_MIN_FONT,
+    Math.min(BUBBLE_MAX_FONT, Math.round(radius * 0.3)),
+  );
+
+  for (let font = start; font >= BUBBLE_MIN_FONT; font--) {
+    const glossFont = Math.max(8, Math.round(font * BUBBLE_GLOSS_SCALE));
+    const wordWrap = wrapToBudgets(words, Array(BUBBLE_MAX_LINES).fill(budgetFor(font)));
+    const glossWrap = wrapToBudgets(gloss, Array(BUBBLE_MAX_LINES).fill(budgetFor(glossFont)));
+    if (wordWrap.leftover || glossWrap.leftover) continue;
+
+    const gap = glossWrap.lines.length > 0 ? font * 0.45 : 0;
+    const height =
+      wordWrap.lines.length * font * BUBBLE_LINE +
+      gap +
+      glossWrap.lines.length * glossFont * BUBBLE_LINE;
+    if (height > boxH) continue;
+
+    return assembleBubble(wordWrap.lines, glossWrap.lines, font, glossFont);
+  }
+
+  // Longer than any size can hold: set it at the smallest and mark the cut.
+  const glossFont = Math.max(8, Math.round(BUBBLE_MIN_FONT * BUBBLE_GLOSS_SCALE));
+  const wordBudget = budgetFor(BUBBLE_MIN_FONT);
+  const wordWrap = wrapToBudgets(words, Array(BUBBLE_MAX_LINES).fill(wordBudget));
+  const glossWrap = wrapToBudgets(gloss, Array(2).fill(budgetFor(glossFont)));
+
+  for (const wrap of [wordWrap, glossWrap]) {
+    if (!wrap.leftover || wrap.lines.length === 0) continue;
+    const last = wrap.lines[wrap.lines.length - 1] ?? "";
+    wrap.lines[wrap.lines.length - 1] = `${last.slice(0, Math.max(1, last.length - 1))}\u2026`;
+  }
+
+  return assembleBubble(wordWrap.lines, glossWrap.lines, BUBBLE_MIN_FONT, glossFont);
 }
 
 /** Bounding box of all nodes in world units, padded by their radius. */

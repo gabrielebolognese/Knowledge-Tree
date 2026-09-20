@@ -51,6 +51,8 @@ export class Sidebar {
   private readonly lightboxImg: HTMLImageElement;
 
   private currentId: NodeId | null = null;
+  /** Infinity where the subject accepts whole phrases. */
+  private titleLimit = Number.POSITIVE_INFINITY;
   private saveTimer: number | null = null;
 
   constructor(
@@ -108,7 +110,6 @@ export class Sidebar {
 
     this.translationInput = el("input", "kt-title-input");
     this.translationInput.type = "text";
-    this.translationInput.maxLength = 60;
     this.translationInput.placeholder = "in English";
     this.translationInput.addEventListener("input", () => this.queueSave());
 
@@ -311,7 +312,12 @@ export class Sidebar {
     this.titleLabel.textContent = profile.bubbles ? "Word" : "Title";
     this.titleInput.placeholder = profile.bubbles ? "la palabra" : "Title";
     this.toggles.hidden = profile.bubbles;
-    this.titleInput.maxLength = titleLimitFor(node, profile);
+    this.titleLimit = titleLimitFor(node, profile);
+    if (Number.isFinite(this.titleLimit)) {
+      this.titleInput.maxLength = this.titleLimit;
+    } else {
+      this.titleInput.removeAttribute("maxlength");
+    }
 
     this.railTag.textContent = profile.bubbles
       ? "Word"
@@ -347,8 +353,10 @@ export class Sidebar {
   }
 
   private updateCounter(): void {
-    const limit = this.titleInput.maxLength > 0 ? this.titleInput.maxLength : 0;
-    this.counter.textContent = `${this.titleInput.value.length} / ${limit}`;
+    const length = this.titleInput.value.length;
+    this.counter.textContent = Number.isFinite(this.titleLimit)
+      ? `${length} / ${this.titleLimit}`
+      : `${length}`;
   }
 
   private queueSave(): void {

@@ -1,4 +1,10 @@
-import { BUBBLE_MARGIN, BUBBLE_MAX_R, BUBBLE_MIN_R } from "./config.js";
+import {
+  BUBBLE_GROWTH,
+  BUBBLE_MARGIN,
+  BUBBLE_MAX_R,
+  BUBBLE_MIN_R,
+  BUBBLE_SOFTNESS,
+} from "./config.js";
 import type { NodeId, TreeNode } from "./types.js";
 
 /**
@@ -37,10 +43,17 @@ export function hash01(text: string): number {
   return (h >>> 0) / 4294967296;
 }
 
-/** Big enough to hold the longer of the two words. */
+/**
+ * Big enough to hold the longer of the two sides. Growth is logarithmic, so a
+ * few extra words make a visible difference while a long paragraph barely
+ * moves the needle — a huge circle would just crowd its neighbours out.
+ */
 export function bubbleRadius(node: Pick<TreeNode, "title" | "translation">): number {
   const longest = Math.max(node.title.trim().length, node.translation.trim().length);
-  return Math.min(BUBBLE_MAX_R, Math.max(BUBBLE_MIN_R, 26 + longest * 1.7));
+  if (longest === 0) return BUBBLE_MIN_R;
+
+  const grown = BUBBLE_MIN_R + BUBBLE_GROWTH * Math.log1p(longest / BUBBLE_SOFTNESS);
+  return Math.min(BUBBLE_MAX_R, grown);
 }
 
 /** Where a word starts out before gravity takes hold. */

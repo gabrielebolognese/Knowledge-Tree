@@ -29,10 +29,12 @@ export const DATE_GAP = 12;
 export const TITLE_MAX = 50;
 /** Title cap on a card, which has far more room. */
 export const TITLE_MAX_CARD = 200;
-/** Title cap on a vocabulary bubble, which holds a single word. */
-export const TITLE_MAX_BUBBLE = 30;
-/** Hard cap the store enforces, so reshaping a node never truncates silently. */
-export const TITLE_LIMIT = 200;
+/**
+ * Hard cap the store enforces, so reshaping a node never truncates silently.
+ * Generous rather than restrictive: a vocabulary bubble takes whole phrases,
+ * and this is only a backstop against pathological data.
+ */
+export const TITLE_LIMIT = 500;
 
 /** Main-rail cards, used where the rail carries rules rather than events. */
 export const CARD_W = 380;
@@ -49,8 +51,15 @@ export const IMPORTANT_CORNER = 15;
 
 /** A cloud of unconnected words: sizes, and the gap gravity must not close. */
 export const BUBBLE_MIN_R = 38;
-export const BUBBLE_MAX_R = 78;
+export const BUBBLE_MAX_R = 108;
 export const BUBBLE_MARGIN = 26;
+/**
+ * A bubble grows with the length of what is in it, but logarithmically: quick
+ * at first, then flattening off, because a wall of text gains nothing from a
+ * wall-sized circle. Tuned so a 30-character word lands near the old size.
+ */
+export const BUBBLE_GROWTH = 17;
+export const BUBBLE_SOFTNESS = 5.3;
 export const CARD_PADDING = 18;
 
 export const MIN_SCALE = 0.02;
