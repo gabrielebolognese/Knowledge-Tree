@@ -11,3 +11,6 @@ coverage/
 # Local-only helper script, kept but never committed
 generate.ps1
 activity.txt
+
+# Agent worktrees: a nested checkout, never part of a commit
+.claude/worktrees/
