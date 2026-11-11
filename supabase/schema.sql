@@ -1,7 +1,7 @@
 -- knowledge tree — run this once in the Supabase SQL editor.
 -- Safe to re-run: every statement is idempotent.
 
--- One row per user. The whole workspace (all eight trees) is a single JSON
+-- One row per user. The whole workspace (all nine trees) is a single JSON
 -- document, which stays small: a paragraph-heavy node is about 400 bytes.
 create table if not exists public.trees (
   owner      uuid primary key references auth.users (id) on delete cascade,
